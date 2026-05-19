@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<!--
+DOCTYPE tells the browser: "render this as modern HTML5".
+Without it, some browsers enter "quirks mode" and layout breaks.
+-->
+
+<html lang="fil">
+<!--
+lang="fil" = Filipino (Tagalog). Helps screen readers and the browser
+use the correct font rendering and hyphenation rules.
+-->
+
+<head>
+<meta charset="UTF-8">
+<!--
+UTF-8 supports all characters: English, Filipino (ñ, etc.),
+peso sign ₱, and emoji. Always the first tag in <head>.
+-->
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+THE MOST IMPORTANT TAG for mobile.
+width=device-width → match the screen's actual pixel width (not a desktop zoom-out)
+initial-scale=1.0 → don't zoom in or out on first load
+Without this, Android phones render the page as if it's a desktop
+and everything looks tiny.
+-->
+
+<meta name="theme-color" content="#2d6a4f">
+<!--
+On Android Chrome, this colors the browser's top bar to match
+your app's green. Small touch, looks professional.
+-->
+
+<title>My Shop Records</title>
+
+<style>
+/* ── CSS RESET ───────────────────────────────────────────────────
+Browsers add their own margins, padding, and box sizing.
+This reset removes surprises so YOU control every pixel.
+── */
+
+*, *::before, *::after {
+box-sizing: border-box;
+/* border-box means: padding and border are INCLUDED in the
+element's width/height. Without this, adding padding makes
+elements unexpectedly wider and breaks layouts. */
+}
+
+* {
+margin: 0;
+padding: 0;
+/* Remove all default browser spacing. We'll add our own. */
+}
+
+/* ── ROOT VARIABLES ─────────────────────────────────────────────
+CSS variables (custom properties) let you change the color
+scheme in one place and have it update everywhere.
+── */
+
+:root {
+--green: #2d6a4f; /* primary brand color */
+--green-light: #52b788; /* hover states, highlights */
+--green-dark: #1b4332; /* headers, active states */
+--white: #ffffff;
+--gray-light: #f4f4f4; /* page background */
+--gray-mid: #cccccc; /* borders, dividers */
+--text-dark: #1a1a1a; /* main readable text */
+--danger: #c0392b; /* delete buttons, errors */
+}
+
+/* ── BASE TYPOGRAPHY ────────────────────────────────────────────
+The elderly user needs large, clear text.
+18px is the minimum for comfortable reading on a small screen.
+── */
+
+html {
+font-size: 18px;
+/* This is the BASE. All rem units below are relative to this.
+1rem = 18px, 1.2rem = 21.6px, etc. */
+}
+
+body {
+font-family: 'Segoe UI', Arial, sans-serif;
+/* Segoe UI is clean and modern. Arial is the fallback.
+sans-serif is the system fallback if neither is available. */
+font-size: 1rem; /* 18px */
+line-height: 1.6; /* breathing room between lines */
+color: var(--text-dark);
+background-color: var(--gray-light);
+}
+
+/* ── APP SHELL ──────────────────────────────────────────────────
+The app is a single column, max 480px wide, centered.
+480px is comfortable on phones without being too wide on tablets.
+── */
+
+#app {
+max-width: 480px;
+margin: 0 auto; /* center horizontally on wider screens */
+background: var(--white);
+min-height: 100vh; /* fill the full screen height */
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────*/
+
+header {
+background-color: var(--green);
+color: var(--white);
+padding: 1rem;
+text-align: center;
+}
+
+header h1 {
+font-size: 1.4rem; /* 25px — large and clear */
+font-weight: 700;
+}
+
+/* ── BUTTONS ────────────────────────────────────────────────────
+Large tap targets (min 48px tall) are required for elderly
+users and are also Google's Material Design guideline.
+── */
+
+button {
+min-height: 48px;
+padding: 0.6rem 1.2rem;
+font-size: 1rem; /* never smaller than base */
+font-weight: 600;
+border: none;
+border-radius: 6px;
+cursor: pointer;
+}
+
+.btn-primary {
+background-color: var(--green);
+color: var(--white);
+}
+
+.btn-danger {
+background-color: var(--danger);
+color: var(--white);
+}
+
+/* ── MAIN CONTENT AREA ──────────────────────────────────────────*/
+
+main {
+padding: 1rem;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="app">
+<!-- Everything the user sees will be rendered inside here -->
+
+```
+<header>
+<h1>🏪 My Shop Records</h1>
+</header>
+
+<main id="main-content">
+<!-- JavaScript will build the UI here -->
+<p>Loading...</p>
+</main>
+```
+
+</div><!-- /#app -->
+
+<script>
+// ================================================================
+// SECTION 1: localStorage KEYS
+// Storing key names as constants prevents typo bugs.
+// If you mistype a key, nothing saves — very hard to debug.
+// ================================================================
+
+const KEYS = {
+sales: 'msr_v1_sales',
+expenses: 'msr_v1_expenses',
+items: 'msr_v1_items',
+};
+
+// ================================================================
+// SECTION 2: THE IN-MEMORY STATE OBJECT
+//
+// This is the single source of truth for all app data.
+// Every part of the UI reads from here — never from the DOM.
+//
+// sales[] → each sale: { id, date, items[], total, note }
+// expenses[] → each expense: { id, date, amount, label }
+// items[] → product catalog: { id, name, price, stock }
+// ================================================================
+
+const state = {
+sales: [],
+expenses: [],
+items: [],
+};
+
+// ================================================================
+// SECTION 3: SAVE STATE TO localStorage
+//
+// localStorage only stores strings, not objects or arrays.
+// JSON.stringify() converts a JS value → a JSON string.
+// We save each array separately so a corrupt sales entry
+// won't destroy your items catalog.
+// ================================================================
+
+function saveState() {
+try {
+// JSON.stringify turns [ {id:1, name:"Rice"} ] into a string:
+// '[{"id":1,"name":"Rice"}]'
+localStorage.setItem(KEYS.sales, JSON.stringify(state.sales));
+localStorage.setItem(KEYS.expenses, JSON.stringify(state.expenses));
+localStorage.setItem(KEYS.items, JSON.stringify(state.items));
+} catch (err) {
+// Budget Android phones can run out of localStorage space (~5MB).
+// We catch the error so the app doesn't crash silently.
+console.error('Save failed:', err);
+alert('Hindi ma-save ang datos. Puno na ang memorya ng browser.');
+// "Cannot save data. Browser memory is full."
+}
+}
+
+// ================================================================
+// SECTION 4: LOAD STATE FROM localStorage
+//
+// This runs ONCE when the app starts.
+// JSON.parse() is the reverse: JSON string → JS value.
+//
+// We use || [] as a fallback: if the key doesn't exist yet
+// (brand new install), getItem() returns null. Parsing null
+// would throw an error, so we default to an empty array.
+// ================================================================
+
+function loadState() {
+try {
+// getItem returns null if the key was never set.
+// JSON.parse(null) → null, so we use || [] to fall back safely.
+state.sales = JSON.parse(localStorage.getItem(KEYS.sales)) || [];
+state.expenses = JSON.parse(localStorage.getItem(KEYS.expenses)) || [];
+state.items = JSON.parse(localStorage.getItem(KEYS.items)) || [];
+} catch (err) {
+// If the stored data is corrupted (e.g. partial write),
+// reset to empty arrays so the app stays usable.
+console.error('Load failed, resetting state:', err);
+state.sales = [];
+state.expenses = [];
+state.items = [];
+}
+}
+
+// ================================================================
+// SECTION 5: APP ENTRY POINT
+//
+// This runs after the page finishes loading.
+// DOMContentLoaded fires when the HTML is parsed — we don't need
+// to wait for images, so it's faster than window.onload.
+// ================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+loadState(); // ← always load before touching the UI
+
+// Temporary proof that loading works — replace with real UI later
+const main = document.getElementById('main-content');
+main.innerHTML = `
+<p><strong>Items:</strong> ${state.items.length}</p>
+<p><strong>Sales:</strong> ${state.sales.length}</p>
+<p><strong>Expenses:</strong> ${state.expenses.length}</p>
+<br>
+<button class="btn-primary" onclick="testSave()">
+Test Save
+</button>
+`;
+});
+
+// ================================================================
+// SECTION 6: QUICK TEST FUNCTION
+// Open this in your browser, click the button, refresh the page.
+// The count should go up — proving localStorage works.
+// ================================================================
+
+function testSave() {
+state.items.push({ id: Date.now(), name: 'Test Item', price: 10, stock: 5 });
+saveState();
+alert('Saved! Refresh the page to confirm it persists.');
+// Re-render the count after saving
+document.getElementById('main-content').querySelector('p').textContent =
+`Items: ${state.items.length}`;
+}
+
+</script>
+
+</body>
+</html>
