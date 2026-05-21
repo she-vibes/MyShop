@@ -1,298 +1,366 @@
-<!DOCTYPE html>
-
-<!--
-DOCTYPE tells the browser: "render this as modern HTML5".
-Without it, some browsers enter "quirks mode" and layout breaks.
--->
-
-<html lang="fil">
-<!--
-lang="fil" = Filipino (Tagalog). Helps screen readers and the browser
-use the correct font rendering and hyphenation rules.
--->
-
-<head>
-<meta charset="UTF-8">
-<!--
-UTF-8 supports all characters: English, Filipino (ñ, etc.),
-peso sign ₱, and emoji. Always the first tag in <head>.
--->
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!--
-THE MOST IMPORTANT TAG for mobile.
-width=device-width → match the screen's actual pixel width (not a desktop zoom-out)
-initial-scale=1.0 → don't zoom in or out on first load
-Without this, Android phones render the page as if it's a desktop
-and everything looks tiny.
--->
-
-<meta name="theme-color" content="#2d6a4f">
-<!--
-On Android Chrome, this colors the browser's top bar to match
-your app's green. Small touch, looks professional.
--->
-
-<title>My Shop Records</title>
-
-<style>
-/* ── CSS RESET ───────────────────────────────────────────────────
-Browsers add their own margins, padding, and box sizing.
-This reset removes surprises so YOU control every pixel.
-── */
-
-*, *::before, *::after {
-box-sizing: border-box;
-/* border-box means: padding and border are INCLUDED in the
-element's width/height. Without this, adding padding makes
-elements unexpectedly wider and breaks layouts. */
-}
-
-* {
-margin: 0;
-padding: 0;
-/* Remove all default browser spacing. We'll add our own. */
-}
-
-/* ── ROOT VARIABLES ─────────────────────────────────────────────
-CSS variables (custom properties) let you change the color
-scheme in one place and have it update everywhere.
-── */
-
-:root {
---green: #2d6a4f; /* primary brand color */
---green-light: #52b788; /* hover states, highlights */
---green-dark: #1b4332; /* headers, active states */
---white: #ffffff;
---gray-light: #f4f4f4; /* page background */
---gray-mid: #cccccc; /* borders, dividers */
---text-dark: #1a1a1a; /* main readable text */
---danger: #c0392b; /* delete buttons, errors */
-}
-
-/* ── BASE TYPOGRAPHY ────────────────────────────────────────────
-The elderly user needs large, clear text.
-18px is the minimum for comfortable reading on a small screen.
-── */
-
-html {
-font-size: 18px;
-/* This is the BASE. All rem units below are relative to this.
-1rem = 18px, 1.2rem = 21.6px, etc. */
-}
-
-body {
-font-family: 'Segoe UI', Arial, sans-serif;
-/* Segoe UI is clean and modern. Arial is the fallback.
-sans-serif is the system fallback if neither is available. */
-font-size: 1rem; /* 18px */
-line-height: 1.6; /* breathing room between lines */
-color: var(--text-dark);
-background-color: var(--gray-light);
-}
-
-/* ── APP SHELL ──────────────────────────────────────────────────
-The app is a single column, max 480px wide, centered.
-480px is comfortable on phones without being too wide on tablets.
-── */
-
-#app {
-max-width: 480px;
-margin: 0 auto; /* center horizontally on wider screens */
-background: var(--white);
-min-height: 100vh; /* fill the full screen height */
-}
-
-/* ── HEADER ─────────────────────────────────────────────────────*/
-
-header {
-background-color: var(--green);
-color: var(--white);
-padding: 1rem;
-text-align: center;
-}
-
-header h1 {
-font-size: 1.4rem; /* 25px — large and clear */
-font-weight: 700;
-}
-
-/* ── BUTTONS ────────────────────────────────────────────────────
-Large tap targets (min 48px tall) are required for elderly
-users and are also Google's Material Design guideline.
-── */
-
-button {
-min-height: 48px;
-padding: 0.6rem 1.2rem;
-font-size: 1rem; /* never smaller than base */
-font-weight: 600;
-border: none;
-border-radius: 6px;
-cursor: pointer;
-}
-
-.btn-primary {
-background-color: var(--green);
-color: var(--white);
-}
-
-.btn-danger {
-background-color: var(--danger);
-color: var(--white);
-}
-
-/* ── MAIN CONTENT AREA ──────────────────────────────────────────*/
-
-main {
-padding: 1rem;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div id="app">
-<!-- Everything the user sees will be rendered inside here -->
-
-```
-<header>
-<h1>🏪 My Shop Records</h1>
-</header>
-
-<main id="main-content">
-<!-- JavaScript will build the UI here -->
-<p>Loading...</p>
-</main>
-```
-
-</div><!-- /#app -->
-
-<script>
-// ================================================================
-// SECTION 1: localStorage KEYS
-// Storing key names as constants prevents typo bugs.
-// If you mistype a key, nothing saves — very hard to debug.
-// ================================================================
-
-const KEYS = {
-sales: 'msr_v1_sales',
-expenses: 'msr_v1_expenses',
-items: 'msr_v1_items',
+import { useState } from "react";
+const C = {
+green: "#2d6a4f",
+greenDark: "#1b4332",
+greenLight: "#95d5b2",
+greenPale: "#d8f3dc",
+white: "#ffffff",
+offwhite: "#f8f9fa",
+border: "#dee2e6",
+text: "#212529",
+muted: "#6c757d",
+red: "#dc3545",
+redPale: "#fff5f5",
+yellow: "#ffc107",
+yellowPale: "#fff8e1",
+blue: "#0d6efd",
+bluePale: "#e7f1ff",
+purple: "#6f42c1",
+purplePale: "#f3f0ff",
+orange: "#fd7e14",
+orangePale: "#fff4e6",
 };
-
-// ================================================================
-// SECTION 2: THE IN-MEMORY STATE OBJECT
-//
-// This is the single source of truth for all app data.
-// Every part of the UI reads from here — never from the DOM.
-//
-// sales[] → each sale: { id, date, items[], total, note }
-// expenses[] → each expense: { id, date, amount, label }
-// items[] → product catalog: { id, name, price, stock }
-// ================================================================
-
-const state = {
-sales: [],
-expenses: [],
-items: [],
+const Box = ({ color, pale, icon, title, items, width = 160, style = {} }) => (
+<div style={{
+background: pale, border: `2px solid ${color}`, borderRadius: 12,
+padding: "12px 14px", width, boxSizing: "border-box",
+boxShadow: `0 2px 8px ${color}22`, ...style
+}}>
+<div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+<span style={{ fontSize: 18 }}>{icon}</span>
+<span style={{ fontSize: 13, fontWeight: 800, color }}>{title}</span>
+</div>
+{items.map((item, i) => (
+<div key={i} style={{
+fontSize: 11, color: C.text, background: C.white,
+border: `1px solid ${color}44`, borderRadius: 6,
+padding: "4px 8px", marginBottom: 4, lineHeight: 1.4
+}}>{item}</div>
+))}
+</div>
+);
+const Arrow = ({ label, direction = "down", color = C.muted, style = {} }) => {
+const isDown = direction === "down";
+const isUp = direction === "up";
+const isRight = direction === "right";
+const isLeft = direction === "left";
+const isHoriz = isRight || isLeft;
+return (
+<div style={{
+display: "flex", flexDirection: isHoriz ? "row" : "column",
+alignItems: "center", gap: 2,
+...(isHoriz ? { width: 60 } : { height: 36 }),
+...style
+}}>
+{(isUp || isLeft) && <span style={{ color, fontSize: 14 }}>{isLeft ? "◀" : "▲"}</span>}
+<div style={{
+background: color, opacity: 0.5,
+...(isHoriz ? { height: 2, flex: 1 } : { width: 2, flex: 1 })
+}} />
+{(isDown || isRight) && <span style={{ color, fontSize: 14 }}>{isRight ? "▶" : "▼"}</span>}
+{label && (
+<div style={{
+position: "absolute", fontSize: 10, color, fontWeight: 600,
+background: C.white, padding: "1px 4px", borderRadius: 4,
+border: `1px solid ${color}44`,
+}}>{label}</div>
+)}
+</div>
+);
 };
-
-// ================================================================
-// SECTION 3: SAVE STATE TO localStorage
-//
-// localStorage only stores strings, not objects or arrays.
-// JSON.stringify() converts a JS value → a JSON string.
-// We save each array separately so a corrupt sales entry
-// won't destroy your items catalog.
-// ================================================================
-
-function saveState() {
-try {
-// JSON.stringify turns [ {id:1, name:"Rice"} ] into a string:
-// '[{"id":1,"name":"Rice"}]'
-localStorage.setItem(KEYS.sales, JSON.stringify(state.sales));
-localStorage.setItem(KEYS.expenses, JSON.stringify(state.expenses));
-localStorage.setItem(KEYS.items, JSON.stringify(state.items));
-} catch (err) {
-// Budget Android phones can run out of localStorage space (~5MB).
-// We catch the error so the app doesn't crash silently.
-console.error('Save failed:', err);
-alert('Hindi ma-save ang datos. Puno na ang memorya ng browser.');
-// "Cannot save data. Browser memory is full."
+const Layer = ({ label, color, children, style = {} }) => (
+<div style={{
+border: `2px dashed ${color}`, borderRadius: 16,
+padding: "12px 16px 16px", position: "relative", ...style
+}}>
+<div style={{
+position: "absolute", top: -11, left: 16,
+background: C.white, padding: "0 8px",
+fontSize: 11, fontWeight: 800, color, letterSpacing: 0.5
+}}>{label}</div>
+{children}
+</div>
+);
+const Legend = ({ items }) => (
+<div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 20 }}>
+{items.map((item, i) => (
+<div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+<div style={{ width: 12, height: 12, borderRadius: 3, background: item.color }} />
+<span style={{ fontSize: 11, color: C.muted }}>{item.label}</span>
+</div>
+))}
+</div>
+);
+const Tooltip = ({ text, children }) => {
+const [show, setShow] = useState(false);
+return (
+<div style={{ position: "relative", display: "inline-block" }}
+onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+{children}
+{show && (
+<div style={{
+position: "absolute", bottom: "110%", left: "50%", transform: "translateX(-50%)",
+background: C.greenDark, color: C.white, fontSize: 11, padding: "6px 10px",
+borderRadius: 8, whiteSpace: "nowrap", zIndex: 10,
+boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+}}>{text}</div>
+)}
+</div>
+);
+};
+export default function App() {
+const [activeSection, setActiveSection] = useState(null);
+const sections = {
+ui: { label: "UI Layer", desc: "All screens rendered in a single HTML file. No routing library." },
+logic: { label: "App Logic", desc: "Pure vanilla JavaScript functions. No framework. Handles validation, math, and state." },
+storage: { label: "Storage Layer", desc: "All data lives in localStorage as JSON strings. Device-only, no sync." },
+export: { label: "Export Layer", desc: "CSV built as a plain string and downloaded via Blob API." },
+chartjs: { label: "Chart.js CDN", desc: "Loaded from cdnjs.cloudflare.com. Version pinned to v4." },
+};
+return (
+<div style={{ fontFamily: "sans-serif", background: C.offwhite, minHeight: "100vh", padding: "20px 16px" }}>
+<div style={{ maxWidth: 860, margin: "0 auto" }}>
+{/* Title */}
+<div style={{ textAlign: "center", marginBottom: 24 }}>
+<div style={{ fontSize: 22, fontWeight: 800, color: C.greenDark }}>🏪 My Shop Records</div>
+<div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Application Architecture Diagram</div>
+<div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Hover over any section to learn more.</div>
+</div>
+{/* === MAIN DIAGRAM === */}
+<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+{/* TOP: External */}
+<div style={{ display: "flex", gap: 20, marginBottom: 8, justifyContent: "center" }}>
+<Tooltip text="Budget Android phone — the primary device">
+<Box color={C.muted} pale="#f0f0f0" icon="📱" title="User's Phone" width={140}
+items={["Budget Android", "360px–414px screen", "Touch only", "Slow 3G"]} />
+</Tooltip>
+<Tooltip text="Chart.js loaded once from CDN. Pinned to v4. No other external libraries.">
+<Box color={C.blue} pale={C.bluePale} icon="☁️" title="CDN (Chart.js)" width={140}
+items={["cdnjs.cloudflare.com", "chart.min.js v4", "Loaded once on open", "No npm"]} />
+</Tooltip>
+</div>
+<div style={{ display: "flex", gap: 100, alignItems: "flex-start" }}>
+<Arrow direction="down" color={C.muted} />
+<Arrow direction="down" color={C.blue} />
+</div>
+{/* THE HTML FILE */}
+<Layer label="📄 index.html — The Entire Application" color={C.green} style={{ width: "100%", marginBottom: 12 }}>
+{/* UI LAYER */}
+<Tooltip text={sections.ui.desc}>
+<Layer label="🎨 UI Layer — Screens & Components" color={C.orange} style={{ marginBottom: 12 }}>
+<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+{[
+{ icon: "🚀", label: "Onboarding\n(3 screens)" },
+{ icon: "💰", label: "Record Sale\nForm" },
+{ icon: "💸", label: "Record Expense\nForm" },
+{ icon: "📋", label: "History\nLog" },
+{ icon: "📊", label: "Charts\nScreen" },
+{ icon: "💾", label: "Export &\nBackup" },
+{ icon: "ℹ️", label: "About\nScreen" },
+].map((s, i) => (
+<div key={i} style={{
+background: C.orangePale, border: `1.5px solid ${C.orange}44`,
+borderRadius: 8, padding: "8px 10px", textAlign: "center",
+fontSize: 11, color: C.text, fontWeight: 600, lineHeight: 1.5,
+minWidth: 72,
+}}>
+<div style={{ fontSize: 18 }}>{s.icon}</div>
+<div style={{ whiteSpace: "pre-line" }}>{s.label}</div>
+</div>
+))}
+</div>
+</Layer>
+</Tooltip>
+<div style={{ display: "flex", justifyContent: "center" }}>
+<Arrow direction="down" color={C.orange} />
+</div>
+{/* LOGIC LAYER */}
+<Tooltip text={sections.logic.desc}>
+<Layer label="⚙️ App Logic — Vanilla JavaScript" color={C.purple} style={{ marginBottom: 12 }}>
+<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+{[
+{ icon: "✔️", label: "Form\nValidation" },
+{ icon: "➕", label: "Add / Edit /\nDelete" },
+{ icon: "🗂️", label: "Group by\nDate & Category" },
+{ icon: "📈", label: "Revenue &\nExpense Totals" },
+{ icon: "🎯", label: "Net Summary\nCalculation" },
+{ icon: "📉", label: "Chart Data\nPreparation" },
+{ icon: "⚠️", label: "Storage\nWarning Logic" },
+{ icon: "⏰", label: "Backup\nReminder Timer" },
+].map((s, i) => (
+<div key={i} style={{
+background: C.purplePale, border: `1.5px solid ${C.purple}44`,
+borderRadius: 8, padding: "8px 10px", textAlign: "center",
+fontSize: 11, color: C.text, fontWeight: 600, lineHeight: 1.5,
+minWidth: 80,
+}}>
+<div style={{ fontSize: 18 }}>{s.icon}</div>
+<div style={{ whiteSpace: "pre-line" }}>{s.label}</div>
+</div>
+))}
+</div>
+</Layer>
+</Tooltip>
+{/* STORAGE + EXPORT side by side */}
+<div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+{/* Storage */}
+<div style={{ flex: 1 }}>
+<div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+<Arrow direction="down" color={C.purple} />
+</div>
+<Tooltip text={sections.storage.desc}>
+<Layer label="💾 Storage — localStorage" color={C.green} style={{ cursor: "help" }}>
+<div style={{ display: "flex", gap: 8 }}>
+<div style={{
+flex: 1, background: C.greenPale, border: `1.5px solid ${C.green}44`,
+borderRadius: 8, padding: "10px 10px",
+}}>
+<div style={{ fontSize: 14, marginBottom: 4 }}>📝</div>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.green }}>msr_sales</div>
+<div style={{ fontSize: 10, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+JSON array<br />id, date, item,<br />category, qty, price
+</div>
+</div>
+<div style={{
+flex: 1, background: C.greenPale, border: `1.5px solid ${C.green}44`,
+borderRadius: 8, padding: "10px 10px",
+}}>
+<div style={{ fontSize: 14, marginBottom: 4 }}>🛒</div>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.green }}>msr_expenses</div>
+<div style={{ fontSize: 10, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+JSON array<br />id, date, label,<br />category, amount
+</div>
+</div>
+</div>
+<div style={{
+marginTop: 8, background: C.yellowPale, border: `1.5px solid ${C.yellow}44`,
+borderRadius: 8, padding: "8px 10px", fontSize: 10, color: C.text, lineHeight: 1.4
+}}>
+Device only · No server · Lost if cache cleared · Warn at 70% full (~3.5 MB)
+</div>
+</Layer>
+</Tooltip>
+</div>
+{/* Export */}
+<div style={{ flex: 1 }}>
+<div style={{ display: "flex", justifyContent: "center" }}>
+<Arrow direction="down" color={C.purple} />
+</div>
+<Tooltip text={sections.export.desc}>
+<Layer label="📤 Export Layer" color={C.blue} style={{ cursor: "help" }}>
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+<div style={{
+background: C.bluePale, border: `1.5px solid ${C.blue}44`,
+borderRadius: 8, padding: "8px 10px",
+}}>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.blue }}>📊 CSV</div>
+<div style={{ fontSize: 10, color: C.muted, marginTop: 3, lineHeight: 1.4 }}>
+String → Blob →<br />createObjectURL → Download
+</div>
+</div>
+<div style={{
+background: C.bluePale, border: `1.5px solid ${C.blue}44`,
+borderRadius: 8, padding: "8px 10px",
+}}>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.blue }}>🌐 HTML</div>
+<div style={{ fontSize: 10, color: C.muted, marginTop: 3, lineHeight: 1.4 }}>
+Generated HTML string<br />→ New tab → Screenshot
+</div>
+</div>
+</div>
+<div style={{
+marginTop: 8, background: C.redPale, border: `1.5px solid ${C.red}44`,
+borderRadius: 8, padding: "6px 10px", fontSize: 10, color: C.red, lineHeight: 1.4
+}}>
+⚠️ Once shared via Messenger/Viber — data leaves the device
+</div>
+</Layer>
+</Tooltip>
+</div>
+</div>
+</Layer>
+{/* BOTTOM: What never happens */}
+<div style={{ display: "flex", justifyContent: "center", marginTop: 16, marginBottom: 20 }}>
+<div style={{
+background: C.redPale, border: `2px solid ${C.red}`, borderRadius: 12,
+padding: "12px 20px", display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center",
+}}>
+<div style={{ fontSize: 12, fontWeight: 800, color: C.red, width: "100%", marginBottom: 4 }}>
+❌ What This Architecture Will Never Include
+</div>
+{[
+"No server or backend",
+"No database",
+"No user accounts",
+"No login or auth",
+"No analytics tracking",
+"No cloud sync",
+"No npm or build tools",
+"No framework (React/Vue/etc)",
+].map((item, i) => (
+<div key={i} style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>✗ {item}</div>
+))}
+</div>
+</div>
+</div>
+{/* DATA FLOW */}
+<div style={{ marginTop: 20, background: C.white, borderRadius: 14, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+<div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 12 }}>📍 Common Data Flows</div>
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+{[
+{ flow: "Record a sale", path: "UI Form → Validate (JS) → JSON.stringify → localStorage → re-render" },
+{ flow: "View today's total", path: "localStorage.getItem → JSON.parse → filter by date → sum → display" },
+{ flow: "Load charts", path: "localStorage → parse → group by date → aggregate → Chart.js draw()" },
+{ flow: "Export CSV", path: "localStorage → parse → format as CSV string → Blob → download" },
+{ flow: "Delete a sale", path: "Tap Delete → Confirm dialog → filter out from array → saveState()" },
+].map((f, i) => (
+<div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.green, minWidth: 130 }}>{f.flow}</div>
+<div style={{ fontSize: 10, color: C.muted, lineHeight: 1.6, fontFamily: "monospace", flex: 1 }}>
+{f.path}
+</div>
+</div>
+))}
+</div>
+</div>
+{/* DATA MODEL */}
+<div style={{ marginTop: 16, background: C.white, borderRadius: 14, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+<div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 12 }}>
+📋 Data Model — JSON
+</div>
+<div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: 200 }}>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>Sale Object</div>
+<pre style={{ fontSize: 10, background: C.greenPale, padding: 10, borderRadius: 6, overflow: "auto" }}>{`{
+  "id": "1746412800000",
+  "date": "2026-05-05",
+  "item": "Rice (1kg)",
+  "category": "Food",
+  "qty": 2,
+  "price": 60
+}`}</pre>
+</div>
+<div style={{ flex: 1, minWidth: 200 }}>
+<div style={{ fontSize: 11, fontWeight: 800, color: C.blue, marginBottom: 6 }}>Expense Object</div>
+<pre style={{ fontSize: 10, background: C.bluePale, padding: 10, borderRadius: 6, overflow: "auto" }}>{`{
+  "id": "1746412900000",
+  "date": "2026-05-05",
+  "label": "Rice restock",
+  "category": "Restock",
+  "amount": 500
+}`}</pre>
+</div>
+</div>
+</div>
+{/* Legend */}
+<Legend items={[
+{ color: C.orange, label: "UI Layer — screens and components" },
+{ color: C.purple, label: "App Logic — vanilla JavaScript functions" },
+{ color: C.green, label: "Storage — localStorage on device" },
+{ color: C.blue, label: "Export & external CDN" },
+{ color: C.red, label: "Excluded by design" },
+]} />
+</div>
+</div>
+);
 }
-}
-
-// ================================================================
-// SECTION 4: LOAD STATE FROM localStorage
-//
-// This runs ONCE when the app starts.
-// JSON.parse() is the reverse: JSON string → JS value.
-//
-// We use || [] as a fallback: if the key doesn't exist yet
-// (brand new install), getItem() returns null. Parsing null
-// would throw an error, so we default to an empty array.
-// ================================================================
-
-function loadState() {
-try {
-// getItem returns null if the key was never set.
-// JSON.parse(null) → null, so we use || [] to fall back safely.
-state.sales = JSON.parse(localStorage.getItem(KEYS.sales)) || [];
-state.expenses = JSON.parse(localStorage.getItem(KEYS.expenses)) || [];
-state.items = JSON.parse(localStorage.getItem(KEYS.items)) || [];
-} catch (err) {
-// If the stored data is corrupted (e.g. partial write),
-// reset to empty arrays so the app stays usable.
-console.error('Load failed, resetting state:', err);
-state.sales = [];
-state.expenses = [];
-state.items = [];
-}
-}
-
-// ================================================================
-// SECTION 5: APP ENTRY POINT
-//
-// This runs after the page finishes loading.
-// DOMContentLoaded fires when the HTML is parsed — we don't need
-// to wait for images, so it's faster than window.onload.
-// ================================================================
-
-document.addEventListener('DOMContentLoaded', () => {
-loadState(); // ← always load before touching the UI
-
-// Temporary proof that loading works — replace with real UI later
-const main = document.getElementById('main-content');
-main.innerHTML = `
-<p><strong>Items:</strong> ${state.items.length}</p>
-<p><strong>Sales:</strong> ${state.sales.length}</p>
-<p><strong>Expenses:</strong> ${state.expenses.length}</p>
-<br>
-<button class="btn-primary" onclick="testSave()">
-Test Save
-</button>
-`;
-});
-
-// ================================================================
-// SECTION 6: QUICK TEST FUNCTION
-// Open this in your browser, click the button, refresh the page.
-// The count should go up — proving localStorage works.
-// ================================================================
-
-function testSave() {
-state.items.push({ id: Date.now(), name: 'Test Item', price: 10, stock: 5 });
-saveState();
-alert('Saved! Refresh the page to confirm it persists.');
-// Re-render the count after saving
-document.getElementById('main-content').querySelector('p').textContent =
-`Items: ${state.items.length}`;
-}
-
-</script>
-
-</body>
-</html>
